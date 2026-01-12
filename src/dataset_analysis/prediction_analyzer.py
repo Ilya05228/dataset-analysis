@@ -101,13 +101,22 @@ def moving_average_predict(
         Прогнозные значения
     """
     predictions = []
-    full_series = series[-train_size - test_size :]
+    train_data = series[-train_size - test_size : -test_size]
 
     for i in range(test_size):
+        # Используем только последние window значений из обучающей выборки + уже предсказанные
         if i < window:
-            window_data = full_series[: train_size + i]
+            # Если у нас меньше window значений, используем все доступные
+            available_data = (
+                np.concatenate([train_data, predictions[:i]]) if i > 0 else train_data
+            )
+            window_start = max(0, len(available_data) - window)
         else:
-            window_data = full_series[train_size + i - window : train_size + i]
+            # Используем последние window предсказаний
+            available_data = predictions[i - window : i]
+            window_start = 0
+
+        window_data = available_data[window_start:]
         predictions.append(np.mean(window_data))
 
     return np.array(predictions)
@@ -120,7 +129,7 @@ def exponential_smoothing_predict(
     series: np.ndarray,
     train_size: int,
     test_size: int,
-    trend="multiplicative",
+    trend="additive",  # Для финансовых данных лучше additive
     seasonal_periods=None,
 ) -> np.ndarray:
     train = series[-train_size - test_size : -test_size]
@@ -128,49 +137,67 @@ def exponential_smoothing_predict(
     if len(train) < 2:
         return np.ones(test_size) * train.mean()
 
-    model = ExponentialSmoothing(
-        train,
-        trend=trend,
-        seasonal=seasonal_periods if seasonal_periods else None,
-        seasonal_periods=seasonal_periods,
-    )
-    model_fit = model.fit()
-    return model_fit.forecast(test_size)
+    try:
+        # Проверяем, достаточно ли данных для сезонности
+        if seasonal_periods and len(train) >= seasonal_periods * 2:
+            seasonal = "additive"
+        else:
+            seasonal = None
+            seasonal_periods = None
+
+        model = ExponentialSmoothing(
+            train,
+            trend=trend,
+            seasonal=seasonal,
+            seasonal_periods=seasonal_periods,
+        )
+        model_fit = model.fit(optimized=True)
+        forecast = model_fit.forecast(test_size)
+        return forecast
+    except Exception as e:
+        print(f"Exponential Smoothing error: {e}")
+        # Fallback на простое скользящее среднее
+        return np.ones(test_size) * train[-7:].mean()
 
 
 def arima_predict(series: np.ndarray, train_size: int, test_size: int) -> np.ndarray:
-    try:
-        from pmdarima import auto_arima
+    from pmdarima import auto_arima
 
-        train = series[-train_size - test_size : -test_size]
-        model = auto_arima(
-            train,
-            start_p=1,
-            start_q=1,
-            max_p=3,
-            max_q=3,
-            seasonal=False,
-            trace=False,
-            error_action="ignore",
-            suppress_warnings=True,
-        )
-        forecast = model.predict(n_periods=test_size)
-        return forecast
-    except:
-        # Fallback на простую линейную экстраполяцию
-        return np.linspace(train[-1], train[-1] + (train[-1] - train[-2]), test_size)
+    train = series[-train_size - test_size : -test_size]
+
+    # Проверяем стационарность данных
+    if len(train) < 10:
+        raise ValueError("Not enough data for ARIMA")
+
+    model = auto_arima(
+        train,
+        start_p=0,
+        start_q=0,
+        max_p=3,
+        max_q=3,
+        max_d=2,
+        seasonal=False,  # Для дневных данных криптовалют сезонность неочевидна
+        trace=False,
+        error_action="ignore",
+        suppress_warnings=True,
+        stepwise=True,
+        n_fits=10,
+    )
+    forecast = model.predict(n_periods=test_size)
+
+    return forecast
 
 
 def random_forest_predict(
-    X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray
+    X_train_time: np.ndarray, y_train: np.ndarray, X_test_time: np.ndarray
 ) -> np.ndarray:
     """
-    Предсказание с помощью случайного леса.
+    Предсказание с помощью случайного леса с лагами и техническими индикаторами.
 
     Args:
-        X_train: Обучающие признаки
-        y_train: Обучающие метки
-        X_test: Тестовые признаки
+        X_train_time: Временные метки обучающей выборки
+        y_train: Цены обучающей выборки
+        X_test_time: Временные метки тестовой выборки
 
     Returns:
         Прогнозные значения
@@ -178,12 +205,91 @@ def random_forest_predict(
     try:
         from sklearn.ensemble import RandomForestRegressor
 
-        model = RandomForestRegressor(n_estimators=100, random_state=42)
-        model.fit(X_train, y_train)
-        return model.predict(X_test)
+        # Создаём расширенные признаки на основе истории цен
+        def create_features(prices, time_indices=None):
+            n = len(prices)
+            features = []
+
+            for i in range(n):
+                feature_row = []
+
+                # Лаги (1, 2, 3, 5, 7 дней)
+                for lag in [1, 2, 3, 5, 7]:
+                    if i >= lag:
+                        feature_row.append(prices[i - lag])
+                    else:
+                        feature_row.append(prices[0])
+
+                # Простое скользящее среднее (7 дней)
+                if i >= 6:
+                    feature_row.append(np.mean(prices[i - 6 : i + 1]))
+                else:
+                    feature_row.append(np.mean(prices[: i + 1]))
+
+                # Волатильность (стандартное отклонение за 7 дней)
+                if i >= 6:
+                    feature_row.append(np.std(prices[i - 6 : i + 1]))
+                else:
+                    feature_row.append(np.std(prices[: i + 1]))
+
+                # Минимум/максимум за 7 дней
+                if i >= 6:
+                    feature_row.append(np.min(prices[i - 6 : i + 1]))
+                    feature_row.append(np.max(prices[i - 6 : i + 1]))
+                else:
+                    feature_row.append(np.min(prices[: i + 1]))
+                    feature_row.append(np.max(prices[: i + 1]))
+
+                # Добавляем временной признак (день)
+                if time_indices is not None:
+                    feature_row.append(time_indices[i])
+
+                features.append(feature_row)
+
+            return np.array(features)
+
+        # Создаём признаки для обучающих данных
+        X_train_features = create_features(y_train, X_train_time.flatten())
+
+        # Для тестовых данных мы не можем использовать будущие цены, поэтому будем предсказывать по одному шагу
+        # и обновлять историю для создания признаков следующего шага
+        predictions = []
+        history_prices = list(y_train)
+        history_times = list(X_train_time.flatten())
+
+        for test_time in X_test_time.flatten():
+            # Создаём признаки на текущей истории
+            current_features = create_features(
+                np.array(history_prices), np.array(history_times)
+            )[-1:]
+
+            # Обучаем модель на всей текущей истории (можно кэшировать, но для простоты переобучаем)
+            X_all = create_features(np.array(history_prices), np.array(history_times))
+            y_all = history_prices
+
+            model = RandomForestRegressor(
+                n_estimators=100, max_depth=10, min_samples_split=5, random_state=42
+            )
+            model.fit(X_all, y_all)
+
+            # Предсказываем следующий шаг
+            pred = model.predict(current_features)[0]
+            predictions.append(pred)
+
+            # Обновляем историю для следующего шага
+            history_prices.append(pred)
+            history_times.append(test_time)
+
+        return np.array(predictions)
+
     except Exception as e:
         print(f"Random Forest error: {e}")
-        return np.ones(len(X_test)) * y_train.mean()
+        # Fallback на линейную регрессию
+        from sklearn.linear_model import LinearRegression
+
+        model = LinearRegression()
+        model.fit(X_train_time, y_train)
+        return model.predict(X_test_time)
 
 
 def calculate_all_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Dict[str, float]:
@@ -376,7 +482,7 @@ def evaluate_all_methods_on_multiple_segments(
     dates: np.ndarray,
     train_size: int = 30,
     test_size: int = 10,
-    n_segments: int = 8,  # Уменьшили до 8 сегментов для 2 лет данных
+    n_segments: int = 8,
 ) -> Dict[str, List[Dict]]:
     """
     Оценивает все методы предсказания на нескольких сегментах данных.
