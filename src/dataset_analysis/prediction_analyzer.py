@@ -508,9 +508,9 @@ def plot_method_segments(
         fontweight="bold",
         pad=15,
     )
-    ax1.set_xlabel("Даты", fontsize=12)
-    ax1.set_ylabel("Цена", fontsize=12)
-    ax1.legend(fontsize=10)
+    ax1.set_xlabel("Даты", fontsize=16)
+    ax1.set_ylabel("Цена", fontsize=16)
+    ax1.legend(fontsize=14)
     ax1.grid(True, alpha=0.3)
     ax1.tick_params(axis="x", rotation=45)
 
@@ -560,9 +560,9 @@ def plot_method_segments(
         fontweight="bold",
         pad=15,
     )
-    ax2.set_xlabel("Даты", fontsize=12)
-    ax2.set_ylabel("Цена", fontsize=12)
-    ax2.legend(fontsize=10)
+    ax2.set_xlabel("Даты", fontsize=16)
+    ax2.set_ylabel("Цена", fontsize=16)
+    ax2.legend(fontsize=14)
     ax2.grid(True, alpha=0.3)
     ax2.tick_params(axis="x", rotation=45)
 
@@ -601,7 +601,7 @@ def plot_method_segments(
         best_segment["RMSE"] + max(rmses) * 0.02,
         "Лучший",
         ha="center",
-        fontsize=10,
+        fontsize=14,
         fontweight="bold",
         color="green",
     )
@@ -610,7 +610,7 @@ def plot_method_segments(
         worst_segment["RMSE"] + max(rmses) * 0.02,
         "Худший",
         ha="center",
-        fontsize=10,
+        fontsize=14,
         fontweight="bold",
         color="red",
     )
@@ -621,8 +621,8 @@ def plot_method_segments(
         fontweight="bold",
         pad=15,
     )
-    ax.set_xlabel("Номер сегмента", fontsize=12)
-    ax.set_ylabel("RMSE", fontsize=12)
+    ax.set_xlabel("Номер сегмента", fontsize=16)
+    ax.set_ylabel("RMSE", fontsize=16)
     ax.grid(True, alpha=0.3, axis="y")
 
     plt.tight_layout()
@@ -644,12 +644,12 @@ def run_all_predictions(data_dict: Dict[str, pd.DataFrame]) -> pd.DataFrame:
     """
     plt.rcParams.update(
         {
-            "font.size": 14,
-            "axes.titlesize": 16,
-            "axes.labelsize": 14,
-            "xtick.labelsize": 12,
-            "ytick.labelsize": 12,
-            "legend.fontsize": 12,
+            "font.size": 16,
+            "axes.titlesize": 18,
+            "axes.labelsize": 16,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "legend.fontsize": 14,
         }
     )
 
