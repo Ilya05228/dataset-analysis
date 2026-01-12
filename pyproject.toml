@@ -9,6 +9,7 @@ dependencies = [
     "matplotlib>=3.10.8",
     "numpy>=2.4.1",
     "pandas>=2.3.3",
+    "pmdarima>=2.1.1",
     "scikit-learn>=1.8.0",
     "statsmodels>=0.14.6",
     "yfinance>=1.0",

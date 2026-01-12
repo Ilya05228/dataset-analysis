@@ -113,59 +113,52 @@ def moving_average_predict(
     return np.array(predictions)
 
 
+from statsmodels.tsa.holtwinters import ExponentialSmoothing
+
+
 def exponential_smoothing_predict(
-    series: np.ndarray, train_size: int, test_size: int, alpha: float = 0.3
+    series: np.ndarray,
+    train_size: int,
+    test_size: int,
+    trend="trend",
+    seasonal_periods=None,
 ) -> np.ndarray:
-    """
-    Предсказание с помощью экспоненциального сглаживания.
-
-    Args:
-        series: Временной ряд
-        train_size: Размер обучающей выборки
-        test_size: Размер тестовой выборки
-        alpha: Параметр сглаживания
-
-    Returns:
-        Прогнозные значения
-    """
-    predictions = []
     train = series[-train_size - test_size : -test_size]
 
-    smoothed = [train[0]]
-    for i in range(1, len(train)):
-        smoothed.append(alpha * train[i] + (1 - alpha) * smoothed[-1])
+    if len(train) < 2:
+        return np.ones(test_size) * train.mean()
 
-    last_value = smoothed[-1]
-
-    for _ in range(test_size):
-        predictions.append(last_value)
-
-    return np.array(predictions)
+    model = ExponentialSmoothing(
+        train,
+        trend=trend,
+        seasonal=seasonal_periods if seasonal_periods else None,
+        seasonal_periods=seasonal_periods,
+    )
+    model_fit = model.fit()
+    return model_fit.forecast(test_size)
 
 
 def arima_predict(series: np.ndarray, train_size: int, test_size: int) -> np.ndarray:
-    """
-    Предсказание с помощью ARIMA.
-
-    Args:
-        series: Временной ряд
-        train_size: Размер обучающей выборки
-        test_size: Размер тестовой выборки
-
-    Returns:
-        Прогнозные значения
-    """
     try:
-        from statsmodels.tsa.arima.model import ARIMA
+        from pmdarima import auto_arima
 
         train = series[-train_size - test_size : -test_size]
-        model = ARIMA(train, order=(1, 1, 1))
-        model_fit = model.fit()
-        forecast = model_fit.forecast(steps=test_size)
+        model = auto_arima(
+            train,
+            start_p=1,
+            start_q=1,
+            max_p=3,
+            max_q=3,
+            seasonal=False,
+            trace=False,
+            error_action="ignore",
+            suppress_warnings=True,
+        )
+        forecast = model.predict(n_periods=test_size)
         return forecast
-    except Exception as e:
-        print(f"ARIMA error: {e}")
-        return np.ones(test_size) * series[-test_size:].mean()
+    except:
+        # Fallback на простую линейную экстраполяцию
+        return np.linspace(train[-1], train[-1] + (train[-1] - train[-2]), test_size)
 
 
 def random_forest_predict(
@@ -175,9 +168,9 @@ def random_forest_predict(
     Предсказание с помощью случайного леса.
 
     Args:
-        X_train: Обучающие признаки (временные метки)
+        X_train: Обучающие признаки
         y_train: Обучающие метки
-        X_test: Тестовые признаки (временные метки)
+        X_test: Тестовые признаки
 
     Returns:
         Прогнозные значения
@@ -333,7 +326,10 @@ def evaluate_method_on_segment(
     }
 
     es_pred = exponential_smoothing_predict(
-        segment_series, train_size, test_size, alpha=0.3
+        segment_series,
+        train_size,
+        test_size,
+        alpha=0.3,
     )
     metrics = calculate_all_metrics(test, es_pred)
     results["exponential_smoothing"] = {
