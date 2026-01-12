@@ -7,7 +7,14 @@ authors = [
     { name = "Ilya05228", email = "iliyaand05@gmail.com" }
 ]
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+    "matplotlib>=3.10.8",
+    "numpy>=2.4.1",
+    "pandas>=2.3.3",
+    "scikit-learn>=1.8.0",
+    "statsmodels>=0.14.6",
+    "yfinance>=1.0",
+]
 
 [project.scripts]
 dataset-analysis = "dataset_analysis:main"
