@@ -129,35 +129,26 @@ def exponential_smoothing_predict(
     series: np.ndarray,
     train_size: int,
     test_size: int,
-    trend="additive",  # Для финансовых данных лучше additive
+    trend="additive",
     seasonal_periods=None,
 ) -> np.ndarray:
     train = series[-train_size - test_size : -test_size]
 
-    if len(train) < 2:
-        return np.ones(test_size) * train.mean()
+    if seasonal_periods and len(train) >= seasonal_periods * 2:
+        seasonal = "additive"
+    else:
+        seasonal = None
+        seasonal_periods = None
 
-    try:
-        # Проверяем, достаточно ли данных для сезонности
-        if seasonal_periods and len(train) >= seasonal_periods * 2:
-            seasonal = "additive"
-        else:
-            seasonal = None
-            seasonal_periods = None
-
-        model = ExponentialSmoothing(
-            train,
-            trend=trend,
-            seasonal=seasonal,
-            seasonal_periods=seasonal_periods,
-        )
-        model_fit = model.fit(optimized=True)
-        forecast = model_fit.forecast(test_size)
-        return forecast
-    except Exception as e:
-        print(f"Exponential Smoothing error: {e}")
-        # Fallback на простое скользящее среднее
-        return np.ones(test_size) * train[-7:].mean()
+    model = ExponentialSmoothing(
+        train,
+        trend=trend,
+        seasonal=seasonal,
+        seasonal_periods=seasonal_periods,
+    )
+    model_fit = model.fit(optimized=True)
+    forecast = model_fit.forecast(test_size)
+    return forecast
 
 
 def arima_predict(series: np.ndarray, train_size: int, test_size: int) -> np.ndarray:
