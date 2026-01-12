@@ -120,7 +120,7 @@ def exponential_smoothing_predict(
     series: np.ndarray,
     train_size: int,
     test_size: int,
-    trend="trend",
+    trend="multiplicative",
     seasonal_periods=None,
 ) -> np.ndarray:
     train = series[-train_size - test_size : -test_size]
@@ -329,7 +329,6 @@ def evaluate_method_on_segment(
         segment_series,
         train_size,
         test_size,
-        alpha=0.3,
     )
     metrics = calculate_all_metrics(test, es_pred)
     results["exponential_smoothing"] = {
