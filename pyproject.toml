@@ -3,9 +3,7 @@ name = "dataset-analysis"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
-authors = [
-    { name = "Ilya05228", email = "iliyaand05@gmail.com" }
-]
+authors = [{ name = "Ilya05228", email = "iliyaand05@gmail.com" }]
 requires-python = ">=3.14"
 dependencies = [
     "matplotlib>=3.10.8",
@@ -17,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-dataset-analysis = "dataset_analysis:main"
+main = "dataset_analysis.main:main"
 
 [build-system]
 requires = ["uv_build>=0.9.9,<0.10.0"]
