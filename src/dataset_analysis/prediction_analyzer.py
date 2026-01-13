@@ -142,8 +142,8 @@ def exponential_smoothing_predict(
 
     model = ExponentialSmoothing(
         train,
-        trend=trend,
-        seasonal=seasonal,
+        trend=None,
+        seasonal=None,
         seasonal_periods=seasonal_periods,
     )
     model_fit = model.fit(optimized=True)
