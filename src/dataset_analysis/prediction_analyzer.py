@@ -152,31 +152,29 @@ def exponential_smoothing_predict(
 
 
 def arima_predict(series: np.ndarray, train_size: int, test_size: int) -> np.ndarray:
-    from pmdarima import auto_arima
+    import numpy as np
+    from statsmodels.tsa.arima.model import ARIMA
 
+    # Берём обучающую часть
     train = series[-train_size - test_size : -test_size]
 
-    # Проверяем стационарность данных
-    if len(train) < 10:
-        raise ValueError("Not enough data for ARIMA")
+    if len(train) < 20:
+        raise ValueError("Not enough data for ARIMA(2,1,2)")
 
-    model = auto_arima(
+    # ARIMA(2,1,2)
+    model = ARIMA(
         train,
-        start_p=0,
-        start_q=0,
-        max_p=3,
-        max_q=3,
-        max_d=2,
-        seasonal=False,  # Для дневных данных криптовалют сезонность неочевидна
-        trace=False,
-        error_action="ignore",
-        suppress_warnings=True,
-        stepwise=True,
-        n_fits=10,
+        order=(2, 1, 2),
+        enforce_stationarity=False,
+        enforce_invertibility=False,
     )
-    forecast = model.predict(n_periods=test_size)
 
-    return forecast
+    fitted = model.fit()
+
+    # Прогноз
+    forecast = fitted.forecast(steps=test_size)
+
+    return np.asarray(forecast)
 
 
 def random_forest_predict(
